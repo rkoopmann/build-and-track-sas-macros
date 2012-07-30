@@ -16,7 +16,7 @@ This paper outlines framework for developing component macros that report back m
 
 # Building Macros
 
-## Converting code to a macro in three easy steps
+## Turning Code Into Macro Code
 
 Removing static values from a piece of code is the first step toward making that code generalizable and reusable in similar contexts. On its surface, the process of converting a piece of working code into afunctioning, parameterized macro is straightforward:
 
@@ -26,9 +26,33 @@ Removing static values from a piece of code is the first step toward making that
 
 Simply stopping at that point, the macro should perform as expected and the end-users will experience the benefit of concise code. However, adding some inline help documentation to the macro will help new users of the macros become acquainted with the different parameters and the options.
 
+## A Macro Template
+
+The following macro code outline is the result of many years of of refinements to macros developed for use by a small number of analysts:
+
+1. Documentation header
+	1. Project -- what project was the code developed for?
+	2. The purpose of the code -- what is it supposed to do?
+	3. Inputs -- any input data sets? external files?
+	4. Outputs -- what are the resulting data sets? lowg output? external files?
+	5. Notes -- anything that you'd like to share with others?
+	6. Changelog -- major changes are summarized, dated, and attributed to an individual
+2. Macro definition statement
+3. Setting sensible defaults
+4. Inline help
+5. Use Tracker
+6. The "meat" of the macro code is here
+7. Cleanning up
+
+## Documentation Header
+
+Whether it's a valid criterion or not, I tend to judge the value of a script based on the amount of comments and documentation that comes along with it. 
+
+## Sensible Defaults
+
 ## Inline Help
 
-# Tracking Use
+## Use Tracker
 
 Some concerns with releasing a macro into the wild is that you generally don't know where it goes (who is using it), how popular it becomes (how frequently it gets called), or when it is time to retire it (when people stop using it). Additionally, the author of the macro often becomes its single source of support---though this burden can be lessened by providing in-line documentation, by naming parameters consistent with source variables, by using sensible default parameter values, and by sharing the macro source code for the curious.
 
@@ -57,7 +81,7 @@ After any inline help that may be in the macro[^ontrackinghelp], add the followi
 
     %tracker(Macro, &MACRO);
 
-## Client-Server Evnironments
+### Client-Server Evnironments
 
 At this point, in a single client environment, the tracking can stop. However, in a client-server environment, each client will need to push their accumulated tracker data up to a shared data set and then clear their local data set. Adding the following code to the `autoexec` will keep the centralized tracking data set up-to-date.
 
@@ -75,7 +99,11 @@ At this point, in a single client environment, the tracking can stop. However, i
 
 Others may want to add some additional code to confirm the local data set has been appended prior to clearing. The last line tells the display manager to clear the log and may be excluded according to user preference.
 
-# Macro Variable Scope
+# Relevant Example Macros
+
+# `%tracker`
+
+# `%pushlocal`
 
 Within macros, there are local and global variables--Local variables exist only within the scope of the containing macro. In client-server environments where macros are called and executed locally with portions of the code being `rsubmit`ted, it is vital to push local (client) macro variables up to the server. This tends to involve a series of `%SYSLPUT` statements. To facilitate this, the `PUSHLOCAL` grabs the values of macro variables local to the called macro and generates a series of `SYSLPUT` statements which are `CALL EXECUTE`d.
 
@@ -100,6 +128,10 @@ Within macros, there are local and global variables--Local variables exist only 
     %end;
     %mend;
 
+
+# `%d`
+
+This is a simple utility macro which returns a formatted datevalue based on user specifications (defaults to `date9.` format relative to a specified date (dafaults to value of `&SYSDATE9.`.
 
 # Conclusion
 
