@@ -52,36 +52,35 @@ Whether it's a valid criterion or not, I tend to judge the value of a script bas
 
 ## Inline Help
 
-## Use Tracker
+# Tracking Use
 
 Some concerns with releasing a macro into the wild is that you generally don't know where it goes (who is using it), how popular it becomes (how frequently it gets called), or when it is time to retire it (when people stop using it). Additionally, the author of the macro often becomes its single source of support---though this burden can be lessened by providing in-line documentation, by naming parameters consistent with source variables, by using sensible default parameter values, and by sharing the macro source code for the curious.
 
 These concerns are most easily resolved by tracking each time a macro is called. Since SAS compiles a macro from source only once (subsequent calls in the same session rely on the compiled version), the tracking cannot occur at the system level. One integrated tracking approach is accomplished by inserting a timestamped record into a permanent data set. For example,
 
-    %macro tracker(action, description);
-    option nonotes;
-    proc sql;
+    proc sql noprint;
     insert into sasuser.tracker
       set sysuserid=upcase("&SYSUSERID")
-    , Action=upcase("&ACTION")
-    , Description=upcase("&DESCRIPTION")
+    , Action=upcase("A brief description")
+    , Description=upcase("A detailed description of what is being tracked")
     , datetime=dhms(today(),0,0,time());
     quit;
-    option notes;
-    %ByeBye:;
-    %mend;
 
-To avoid cluttering the log with notes irrelevant to the macro, the `nonotes`/`notes` option is toggled when inserting the record into the tracker data set.
+The idea of tracking macro use _without_ using a macro seemed silly, so this static code was converted into a macro called `%TRACKER` accepting 2 parameters:
 
-Once the main macro has been built, adding the code to trigger the tracking macro is a matter of adding three statments. To prepare for the tracking macro, add these two statments near the top of the macro (shortly after the `%macro xxx(...);` statement):
+1. Action -- a brief description of what type of action is being logged (e.g., _Login_, _Macro_).
+2. Description -- a more detailed description of the action (e.g., _Connect to server_, Name of macro being called)
 
-    %local macro; %let macro=&SYSMACRONAME;
+Once the to-be-tracked macro has been built, adding the code to trigger the `%TRACKER` macro is a simple matter of adding three statments. To prepare, add these two statments near the top of the to-be-tracked macro (shortly after the `%macro xxx(...);` statement):
 
-After any inline help that may be in the macro[^ontrackinghelp], add the following statement to trigger the tracking macro:
+    %local macro;
+    %let macro=&SYSMACRONAME;
+
+After any inline help that may be in the to-be-tracked macro[^ontrackinghelp], add the following statement to trigger the `%TRACKER` macro:
 
     %tracker(Macro, &MACRO);
 
-### Client-Server Evnironments
+## Client-Server Evnironments
 
 At this point, in a single client environment, the tracking can stop. However, in a client-server environment, each client will need to push their accumulated tracker data up to a shared data set and then clear their local data set. Adding the following code to the `autoexec` will keep the centralized tracking data set up-to-date.
 
@@ -99,13 +98,53 @@ At this point, in a single client environment, the tracking can stop. However, i
 
 Others may want to add some additional code to confirm the local data set has been appended prior to clearing. The last line tells the display manager to clear the log and may be excluded according to user preference.
 
+## Simple Queries
+
+Get the number of macro transactions logged inthe prior 6 weeks is a trivial task -- the `%d` macro returns a relative date value and is described below.
+
+    proc freq data=sys.tracker order=freq;
+        where action eq 'MACRO'
+        and datepart(datetime)
+        between "%d(interval=week, increment=-6)"d
+            and "%d(interval=week)"d ;
+        table Description / nocum;
+    run;
+
+And the (truncated) results:
+
+    Description                                           Frequency     Percent
+    ---------------------------------------------------------------------------
+    EDWREGLITE                                                 141       28.89
+    EXPEXCEL                                                    92       18.85
+    RLIBNAME                                                    65       13.32
+    EDWGRADLITE                                                 38        7.79
+    EDWREGLITE_SAS                                              38        7.79
+
+
 # Relevant Example Macros
 
 # `%tracker`
 
+As described above, the `%TRACKER` macro 
+
+    %macro tracker(action, description);
+    option nonotes;
+    proc sql;
+    insert into sasuser.tracker
+      set sysuserid=upcase("&SYSUSERID")
+    , Action=upcase("&ACTION")
+    , Description=upcase("&DESCRIPTION")
+    , datetime=dhms(today(),0,0,time());
+    quit;
+    option notes;
+    %ByeBye:;
+    %mend;
+
+To avoid cluttering the log with notes irrelevant to the macro, the `nonotes`/`notes` option is toggled when inserting the record into the tracker data set.
+
 # `%pushlocal`
 
-Within macros, there are local and global variables--Local variables exist only within the scope of the containing macro. In client-server environments where macros are called and executed locally with portions of the code being `rsubmit`ted, it is vital to push local (client) macro variables up to the server. This tends to involve a series of `%SYSLPUT` statements. To facilitate this, the `PUSHLOCAL` grabs the values of macro variables local to the called macro and generates a series of `SYSLPUT` statements which are `CALL EXECUTE`d.
+Within macros, there are local and global variables--Local variables exist only within the scope of the containing macro. In client-server environments where macros are called and executed locally with portions of the code being `rsubmit`ted, it is vital to push local (client) macro variables up to the server. This tends to involve a series of `%SYSLPUT` statements. To facilitate this, the `%PUSHLOCAL` macro grabs the values of macro variables local to the calling macro and generates a series of `%SYSLPUT` statements which are subsequently `CALL EXECUTE`d.
 
     %macro pushlocal(MACRO, debug=FALSE);
     proc sql;
@@ -131,7 +170,44 @@ Within macros, there are local and global variables--Local variables exist only 
 
 # `%d`
 
-This is a simple utility macro which returns a formatted datevalue based on user specifications (defaults to `date9.` format relative to a specified date (dafaults to value of `&SYSDATE9.`.
+This is a simple utility macro which returns a formatted datevalue based on user specifications (defaults to `date9.`) format relative to a specified date (dafaults to value of `&SYSDATE9.`).
+
+    %macro d(
+      format
+    , d=&SYSDATE9
+    , interval=day
+    , increment=0
+    , alignment=b
+    );
+    %local macro; %let macro=&SYSMACRONAME;
+
+    %if &FORMAT eq %then %let format = date9;
+
+    %else %if %upcase(&FORMAT) eq HELP %then %do;
+      %put ***********************************************************************************;
+      %put * D Returns a date value in the specified format.                                 *;
+      %put ***********************************************************************************;
+      %put * Positional Parameters (in this order):                                          *;
+      %put *  FORMAT    The format to return DATE in. Defaults to date9.                     *;
+      %put *                                                                                 *;
+      %put * Optional Keyword Parameters (in any order):                                     *;
+      %put *  D         Date value to use entered in date9 format. Defaults to SYSDATE9.     *;
+      %put *  INTERVAL  Interval to shift the DATE parameter by. Defaults to day.            *;
+      %put *  INCREMENT Amount to shift the DATE parameter by. Defaults to 0.                *;
+      %put *  ALIGNMENT Sets the position of the result. Defaults to b(eginning).            *;
+      %put ***********************************************************************************;
+      %put * Example macro call (replace # with standard percent symbol)                     *;
+      %put *  #d(worddate, d=07DEC1942, interval=month, increment=5, alignment=s)            *;
+      %put *  #d(increment=3, d=#d(d=19NOV1863, interval=year.7, increment=-87))             *;
+      %put ***********************************************************************************;
+      dm log 'show';
+      %goto ByeBye;
+    %end;
+
+    %unquote(%left(%quote(%sysfunc(intnx(&INTERVAL, "&D"d, &INCREMENT, &ALIGNMENT), &FORMAT..))))
+
+    %ByeBye:
+    %mend  d;
 
 # Conclusion
 
