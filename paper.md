@@ -1,9 +1,3 @@
-Title: Building Macros and Tracking Their Use
-Author: Richard Koopmann
-Bio: Richard Koopmann is a Senior Research Analyst with Capella University and has been using SAS since 2005.
-base header level: 2
-css: byword.css
-
 # Building Macros and Tracking Their Use
 
 Many of the routine tasks we do in SAS can be converted into parameterized macros[^repetition]. Whether you are pulling standard data sets for regular reports, preforming a number of statistical tests for an ad hoc request, or some other low-level function (such as generating sets of `%SYSLPUT` statements for executing macros in a client-server environment), macros can help make repetitious tasks more tolerable. Developing a common macro script structure and committing to it are just the first steps toward having a more concise code base.
