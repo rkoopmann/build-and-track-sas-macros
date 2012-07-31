@@ -28,7 +28,7 @@ PROGRAM HISTORY
   %put * D Returns a date value in the specified format.                                 *;
   %put ***********************************************************************************;
   %put * Positional Parameters (in this order):                                          *;
-  %put *  FORMAT    The format to return DATE in. Defaults to date9.                     *;
+  %put *  FORMAT    The format to return DATE in. Defaults to date9 (drop '.').          *;
   %put *                                                                                 *;
   %put * Optional Keyword Parameters (in any order):                                     *;
   %put *  D         Date value to use entered in date9 format. Defaults to SYSDATE9.     *;
