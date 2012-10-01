@@ -8,6 +8,7 @@ Notes   : contents of sasuser.tracker are appended to shared data set before bei
 
 PROGRAM HISTORY
 2009-03-27 RK Initial program developed.
+2012-10-01 RK Handles missing data set, adds upload action.
 \*********************************************************************************/;
 
 
@@ -15,7 +16,9 @@ PROGRAM HISTORY
   action
 , description
 );
-%local macro; %let macro=&SYSMACRONAME;
+
+%local macro;
+%let macro=&SYSMACRONAME;
 
 %if %upcase(&ACTION) eq HELP %then %do;
   %put ***********************************************************************************;
@@ -35,12 +38,31 @@ PROGRAM HISTORY
   %goto ByeBye;
 %end;
 
-%else %if %upcase(&ACTION) eq EDIT %then %do;
-  %EditMacro(&MACRO);
+%else %if %upcase(&ACTION) eq UPLOAD %then %do;
+  option nonotes;
+  libname _t 'shared-network-drive';
+  proc append base=_t.tracker data=sasuser.tracker;
+  run;
+  data sasuser.tracker;
+    set _t.tracker;
+    stop;
+  run;
+  libname _t clear;
+  option notes;
   %goto ByeBye;
 %end;
 
 option nonotes;
+*** if the local copy of the tracker data set does not exist, spawn a copy ***;
+%if %sysfunc(exist(sasuser.tracker)) = 0 %then %do;
+  libname _t 'shared-network-drive';
+  data sasuser.tracker;
+    set _t.tracker;
+    stop;
+  run;
+  libname _t clear;
+%end;
+
 proc sql;
 insert into sasuser.tracker
   set sysuserid=upcase("&SYSUSERID")
@@ -53,4 +75,6 @@ option notes;
 
 %ByeBye:;
 
+
 %mend;
+
